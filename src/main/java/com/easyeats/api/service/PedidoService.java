@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.easyeats.api.dto.ItemPedidoDto;
 import com.easyeats.api.dto.PedidoDto;
 import com.easyeats.api.dto.mapper.PedidoMapper;
 import com.easyeats.api.entity.ItemPedido;
@@ -30,6 +31,12 @@ public class PedidoService {
     private final MesaRepository mesaRepository;
     private final EstoqueService estoqueService;
     private final PushService pushService;
+
+    @Transactional(readOnly = true)
+    public void validarEstoque(List<ItemPedidoDto> itens) {
+        estoqueService.validarDisponibilidade(
+                itens.stream().map(itemPedidoService::montarItem).toList());
+    }
 
     @Transactional
     public PedidoDto salvar(PedidoDto dto) {
@@ -92,12 +99,13 @@ public class PedidoService {
         PedidoDto resultado = mapper.toDto(repository.save(pedido));
         notificarSeFicouPronto(pedido, anterior);
         return resultado;
-    
+
     }
 
     @Transactional
     public PedidoDto atualizarStatus(Long id, String status) {
-        // lock no pedido: duas chamadas simultâneas para o mesmo pedido são executadas uma por vez
+        // lock no pedido: duas chamadas simultâneas para o mesmo pedido são executadas
+        // uma por vez
         Pedido pedido = repository.buscarPorIdParaAtualizar(id)
                 .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
 
@@ -109,8 +117,10 @@ public class PedidoService {
     }
 
     /**
-     * Único ponto que altera o status. Ao entrar em EM_PREPARO baixa os ingredientes do estoque,
-     * uma única vez por pedido (flag estoqueBaixado). Se faltar estoque, lança exceção e nada é alterado.
+     * Único ponto que altera o status. Ao entrar em EM_PREPARO baixa os
+     * ingredientes do estoque,
+     * uma única vez por pedido (flag estoqueBaixado). Se faltar estoque, lança
+     * exceção e nada é alterado.
      */
     private void definirStatus(Pedido pedido, StatusPedidoEnum novoStatus) {
         if (novoStatus == StatusPedidoEnum.EM_PREPARO && !pedido.isEstoqueBaixado()) {
@@ -121,11 +131,11 @@ public class PedidoService {
     }
 
     private void notificarSeFicouPronto(Pedido pedido, StatusPedidoEnum anterior) {
-    if (anterior == StatusPedidoEnum.EM_PREPARO && pedido.getStatus() == StatusPedidoEnum.FINALIZADO) {
-        pushService.notificarPedidoPronto(
-                pedido.getId(), String.format("Mesa %02d", pedido.getMesa().getNumero()));
+        if (anterior == StatusPedidoEnum.EM_PREPARO && pedido.getStatus() == StatusPedidoEnum.FINALIZADO) {
+            pushService.notificarPedidoPronto(
+                    pedido.getId(), String.format("Mesa %02d", pedido.getMesa().getNumero()));
+        }
     }
-}
 
     @Transactional(readOnly = true)
     public List<PedidoDto> listarTodos() {

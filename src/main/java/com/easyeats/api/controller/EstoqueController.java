@@ -45,19 +45,19 @@ public class EstoqueController {
 
     @PutMapping("/{id}")
     public ResponseEntity<EstoqueDto> alterar(@PathVariable Long id,
-                                              @Valid @RequestBody EstoqueDto estoque) {
+            @Valid @RequestBody EstoqueDto estoque) {
         return ResponseEntity.ok(estoqueService.alterar(id, estoque));
     }
 
     @PatchMapping("/{id}/entrada")
     public ResponseEntity<EstoqueDto> entrada(@PathVariable Long id,
-                                              @Valid @RequestBody MovimentacaoDto mov) {
+            @Valid @RequestBody MovimentacaoDto mov) {
         return ResponseEntity.ok(estoqueService.registrarEntrada(id, mov.quantidade()));
     }
 
     @PatchMapping("/{id}/saida")
     public ResponseEntity<EstoqueDto> saida(@PathVariable Long id,
-                                            @Valid @RequestBody MovimentacaoDto mov) {
+            @Valid @RequestBody MovimentacaoDto mov) {
         return ResponseEntity.ok(estoqueService.registrarSaida(id, mov.quantidade()));
     }
 
@@ -65,5 +65,10 @@ public class EstoqueController {
     public ResponseEntity<Void> excluir(@PathVariable Long id) {
         estoqueService.excluir(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/produtos-sem-estoque")
+    public ResponseEntity<List<Long>> listarProdutosSemEstoque() {
+        return ResponseEntity.ok(estoqueService.listarProdutosSemEstoque());
     }
 }

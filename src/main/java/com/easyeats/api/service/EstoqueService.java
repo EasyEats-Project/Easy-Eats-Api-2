@@ -5,12 +5,15 @@ import com.easyeats.api.dto.mapper.EstoqueMapper;
 import com.easyeats.api.entity.Estoque;
 import com.easyeats.api.entity.Ingrediente;
 import com.easyeats.api.entity.ItemPedido;
+import com.easyeats.api.entity.Produto;
 import com.easyeats.api.entity.ProdutoIngrediente;
 import com.easyeats.api.exception.RecursoNaoEncontradoException;
 import com.easyeats.api.exception.RegraNegocioException;
 import com.easyeats.api.repository.EstoqueRepository;
 import com.easyeats.api.repository.IngredienteRepository;
 import com.easyeats.api.repository.ProdutoIngredienteRepository;
+import com.easyeats.api.repository.ProdutoRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,7 @@ public class EstoqueService {
     private final EstoqueRepository estoqueRepository;
     private final IngredienteRepository ingredienteRepository;
     private final ProdutoIngredienteRepository produtoIngredienteRepository;
+    private final ProdutoRepository produtoRepository;
     private final EstoqueMapper mapper;
 
     @Transactional
@@ -61,6 +65,27 @@ public class EstoqueService {
         return estoqueRepository.findAbaixoDoMinimo().stream()
                 .map(mapper::toDto)
                 .toList();
+    }
+
+    public List<Long> listarProdutosSemEstoque() {
+        return produtoRepository.findAll().stream()
+                .filter(p -> "S".equals(p.getFlativo()))
+                .filter(p -> !temEstoqueParaUmaUnidade(p))
+                .map(Produto::getId)
+                .toList();
+    }
+
+    private boolean temEstoqueParaUmaUnidade(Produto produto) {
+        ItemPedido umaUnidade = new ItemPedido();
+        umaUnidade.setProduto(produto);
+        umaUnidade.setQuantidade(1);
+
+        try {
+            validarDisponibilidade(List.of(umaUnidade));
+            return true;
+        } catch (RegraNegocioException e) {
+            return false;
+        }
     }
 
     public EstoqueDto buscarPorId(Long id) {
@@ -118,7 +143,8 @@ public class EstoqueService {
 
     /**
      * Valida se há estoque para os itens informados. NÃO movimenta o estoque.
-     * Usada ao incluir itens em um pedido; a verificação definitiva é refeita em {@link #baixarPorItens}.
+     * Usada ao incluir itens em um pedido; a verificação definitiva é refeita em
+     * {@link #baixarPorItens}.
      */
     public void validarDisponibilidade(Collection<ItemPedido> itens) {
         Map<Long, Necessidade> necessidades = calcularNecessidades(itens);
@@ -133,8 +159,10 @@ public class EstoqueService {
     }
 
     /**
-     * Baixa definitiva dos ingredientes consumidos pelos itens (tudo ou nada, na transação do chamador).
-     * Bloqueia as linhas de estoque, revalida a disponibilidade e registra a saída via {@link #registrarSaida}.
+     * Baixa definitiva dos ingredientes consumidos pelos itens (tudo ou nada, na
+     * transação do chamador).
+     * Bloqueia as linhas de estoque, revalida a disponibilidade e registra a saída
+     * via {@link #registrarSaida}.
      */
     @Transactional
     public void baixarPorItens(Collection<ItemPedido> itens) {
@@ -148,11 +176,12 @@ public class EstoqueService {
 
         conferirDisponibilidade(necessidades, estoques);
 
-        necessidades.forEach((idIngrediente, necessidade) ->
-                registrarSaida(estoques.get(idIngrediente).getId(), necessidade.quantidade()));
+        necessidades.forEach((idIngrediente, necessidade) -> registrarSaida(estoques.get(idIngrediente).getId(),
+                necessidade.quantidade()));
     }
 
-    // consumo total por ingrediente = soma(quantidade da ficha técnica x quantidade pedida)
+    // consumo total por ingrediente = soma(quantidade da ficha técnica x quantidade
+    // pedida)
     private Map<Long, Necessidade> calcularNecessidades(Collection<ItemPedido> itens) {
         Map<Long, Integer> pedidoPorProduto = new HashMap<>();
         for (ItemPedido item : itens) {
@@ -178,8 +207,10 @@ public class EstoqueService {
             ingredientes.put(idIngrediente, vinculo.getIngrediente());
         }
 
-        // O estoque tem 3 casas decimais: a soma do pedido é arredondada para cima nessa escala
-        // (só faz diferença se a ficha técnica tiver mais de 3 casas; nunca subestima o consumo).
+        // O estoque tem 3 casas decimais: a soma do pedido é arredondada para cima
+        // nessa escala
+        // (só faz diferença se a ficha técnica tiver mais de 3 casas; nunca subestima o
+        // consumo).
         Map<Long, Necessidade> necessidades = new LinkedHashMap<>();
         totais.forEach((idIngrediente, total) -> necessidades.put(idIngrediente,
                 new Necessidade(ingredientes.get(idIngrediente), total.setScale(3, RoundingMode.CEILING))));

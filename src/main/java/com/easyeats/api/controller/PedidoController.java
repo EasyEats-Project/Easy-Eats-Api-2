@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.easyeats.api.dto.ItemPedidoDto;
 import com.easyeats.api.dto.PedidoDto;
 import com.easyeats.api.service.PedidoService;
 
@@ -71,8 +72,13 @@ public class PedidoController {
     @GetMapping(params = "status")
     public ResponseEntity<List<PedidoDto>> listarPorStatus(
             @RequestParam StatusPedidoEnum status,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime antesDe) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime antesDe) {
         return ResponseEntity.ok(service.listarPorStatus(status, antesDe));
+    }
+
+    @PostMapping("/validar-estoque")
+    public ResponseEntity<Void> validarEstoque(@RequestBody List<ItemPedidoDto> itens) {
+        service.validarEstoque(itens);
+        return ResponseEntity.noContent().build();
     }
 }
