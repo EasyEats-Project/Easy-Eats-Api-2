@@ -30,7 +30,7 @@ Camadas por tipo de pacote: `controller → service → repository → entity`, 
   em `{ "erro": "...", "campos": [...] }`.
 - Convenções: entidades com `@Data @Entity`, datas por `@PrePersist`/`@PreUpdate`, valores monetários
   em `BigDecimal`, lock pessimista para operações concorrentes (como a baixa de estoque).
-- As tabelas de negócio são criadas pelo Hibernate (`ddl-auto=update`). Não há migrations para elas.
+- Banco híbrido: a migration V4 cria `tb_categoria`, `tb_ingrediente`, `tb_estoques`, `tb_produto`, `tb_preco`, `tb_produto_ingrediente` e `tb_mesa`. As demais (`tb_pedido`, `tb_item_pedido`, `tb_dispositivo_push` e as do Caixa) são criadas pelo Hibernate (`ddl-auto=update`).
 
 ### 1.3 Contexto do financeiro antes deste trabalho
 
@@ -67,7 +67,7 @@ na API (fora das rotas novas do caixa), mistura de Hibernate `update` com Flyway
 | Tema | Decisão |
 |---|---|
 | Ordem de entrega | Caixa primeiro, Venda depois. |
-| Migrations | Não alterar. As tabelas novas são criadas pelo Hibernate. |
+| Migrations | Não alterar. As tabelas novas do Caixa são criadas pelo Hibernate. |
 | Services existentes | Podem ser alterados quando necessário (previsto para `PedidoService` na Venda). Para o Caixa foram criados services novos. |
 | Nome `Pedido` | Mantido no backend. "Comanda" é o termo de negócio e de tela. |
 | Caixa | Um único caixa aberto por vez. |
@@ -238,8 +238,11 @@ Total: **153 testes, 0 falhas** (92 anteriores + 61 novos). Comando: `.\mvnw.cmd
 | `CaixaMovimentacaoTest` | 20 | Suprimento e sangria, saldo, motivo obrigatório, sangria acima do saldo, perfis, validações, campos ignorados, caixa fechado ou inexistente. |
 | `CaixaConsultaTest` | 16 | Relatório de fechamento, histórico paginado e filtrado, lançamentos com filtros combinados, resumo, limite de página e permissões. |
 
-Os testes rodam em H2. **Ainda não foram executados contra PostgreSQL.** Antes de implantar, subir a
-aplicação em PostgreSQL e conferir a criação das tabelas e a restrição `unique` de `aberto_unico`.
+Os testes automatizados rodam em H2. A aplicação também foi subida em um PostgreSQL 18 vazio (banco
+`easy_eats` criado para isso): as 5 migrations foram aplicadas, o Hibernate criou `tb_caixa` e
+`tb_movimentacao_caixa`, e a restrição `unique` de `aberto_unico` foi conferida diretamente no banco
+(um caixa aberto aceita vários fechados e recusa um segundo aberto). **A suíte de testes completa ainda
+não foi executada contra PostgreSQL.**
 
 ---
 
@@ -288,7 +291,7 @@ ocupação de mesa vinda do backend e faturamento baseado em vendas finalizadas.
 
 ### 7.3 Pendências gerais
 
-- Validar o backend em PostgreSQL.
+- Rodar a suíte de testes contra PostgreSQL (hoje só H2; a subida da aplicação e a restrição de caixa único já foram validadas no PostgreSQL).
 - Validar visualmente as telas novas no navegador (os testes cobrem lógica e contrato, não o layout).
 - Decidir se `Specification` e `PaginaDto` ficam (item 4.9).
 - Enviar as branches ao GitHub e abrir pull requests quando for o momento.
