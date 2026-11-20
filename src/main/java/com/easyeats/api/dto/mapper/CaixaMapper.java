@@ -39,6 +39,7 @@ public class CaixaMapper {
         return new MovimentacaoCaixaDto(
                 movimentacao.getId(),
                 movimentacao.getCaixa() != null ? movimentacao.getCaixa().getId() : null,
+                movimentacao.getVendaId(),
                 movimentacao.getTipo(),
                 movimentacao.getValor(),
                 movimentacao.getDescricao(),

@@ -58,6 +58,10 @@ public class MovimentacaoCaixa {
     @Column(nullable = false)
     private String usuario;
 
+    // Preenchido nos lançamentos do tipo VENDA, para rastrear a venda que originou a entrada
+    @Column(name = "venda_id")
+    private Long vendaId;
+
     @Column(name = "data_movimentacao", nullable = false, updatable = false)
     private LocalDateTime dataMovimentacao;
 

@@ -12,6 +12,7 @@ public record PedidoDto(
         LocalDateTime dataCriacao,
         LocalDateTime dataAlteracao,
         Long mesaId,
+        Long vendaId,               // definido pela API: venda (conta) da mesa
         String cliente,
         String status,
         BigDecimal valorTotal,

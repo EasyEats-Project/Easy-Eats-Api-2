@@ -38,6 +38,13 @@ public class Pedido {
     @EqualsAndHashCode.Exclude
     private Mesa mesa;
 
+    // Venda (conta) a que a comanda pertence. Nula só em pedidos antigos, anteriores à Venda.
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "venda_id")
+    private Venda venda;
+
     @Enumerated(EnumType.STRING)
     @Column
     private StatusPedidoEnum status;

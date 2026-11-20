@@ -280,14 +280,9 @@ Arquivos principais: `caixa.service.ts` (cliente de `/caixa`), componente reutil
 `movimentacao-financeira.service.ts` (API que nunca existiu) foi removido.
 
 Testes do frontend: 56 (eram 18). Build de produção sem avisos.
-### 7.2 Venda e Comanda
+### 7.2 Venda e Comanda (backend implementado)
 
-Plano aprovado: entidade `Venda` e `PagamentoVenda`, vínculo em `Pedido` (`venda_id`), venda aberta
-automaticamente na primeira comanda da mesa, mesa ocupada enquanto houver venda aberta, finalização
-exigindo caixa aberto e pagamentos que somem o total, cancelamento com devolução de estoque nos itens
-sem preparo iniciado, venda sem mesa para delivery e retirada, endpoint de ocupação de mesas. No frontend:
-renomear o modelo `Venda`/`VendaService` atual para `Comanda`/`ComandaService`, nova tela da Conta,
-ocupação de mesa vinda do backend e faturamento baseado em vendas finalizadas.
+Veja `DOCUMENTACAO_VENDA.md`. O frontend da Venda (renomear o modelo `Venda` para `Comanda`, tela da Conta, ocupação de mesa vinda do backend e faturamento por vendas) ainda não foi feito.
 
 ### 7.3 Pendências gerais
 

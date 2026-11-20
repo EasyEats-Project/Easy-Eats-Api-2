@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public record MovimentacaoCaixaDto(
         Long id,
         Long caixaId,               // definido pela API, o que vier do cliente é ignorado
+        Long vendaId,               // definido pela API nos lançamentos do tipo VENDA
 
         @NotNull(message = "O tipo é obrigatório")
         TipoMovimentacaoCaixaEnum tipo,

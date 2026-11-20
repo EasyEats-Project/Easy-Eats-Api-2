@@ -7,6 +7,7 @@ public record RelatorioFechamentoDto(
         CaixaDto caixa,
         BigDecimal totalSuprimentos,
         BigDecimal totalSangrias,
+        BigDecimal totalVendas,
         List<MovimentacaoCaixaDto> movimentacoes
 ) {
 }

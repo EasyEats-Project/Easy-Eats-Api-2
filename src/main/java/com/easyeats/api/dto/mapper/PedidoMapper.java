@@ -26,6 +26,7 @@ public class PedidoMapper {
                 pedido.getDataCriacao(),
                 pedido.getDataAlteracao(),
                 pedido.getMesa() != null ? pedido.getMesa().getId() : null,
+                pedido.getVenda() != null ? pedido.getVenda().getId() : null,
                 pedido.getCliente(),
                 pedido.getStatus() == null
                         ? StatusPedidoEnum.ABERTO.name()

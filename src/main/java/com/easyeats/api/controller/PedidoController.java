@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.*;
 
 import com.easyeats.api.dto.ItemPedidoDto;
 import com.easyeats.api.dto.PedidoDto;
+import com.easyeats.api.security.UsuarioAutenticado;
 import com.easyeats.api.service.PedidoService;
+import org.springframework.security.core.Authentication;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +26,10 @@ public class PedidoController {
     private final PedidoService service;
 
     @PostMapping
-    public ResponseEntity<PedidoDto> criar(@Valid @RequestBody PedidoDto pedido) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.salvar(pedido));
+    public ResponseEntity<PedidoDto> criar(@Valid @RequestBody PedidoDto pedido,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(service.salvar(pedido, UsuarioAutenticado.de(authentication)));
     }
 
     @GetMapping

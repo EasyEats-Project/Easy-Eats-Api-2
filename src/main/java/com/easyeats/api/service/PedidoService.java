@@ -18,6 +18,7 @@ import com.easyeats.api.entity.Pedido;
 import com.easyeats.api.entity.StatusPedidoEnum;
 import com.easyeats.api.repository.PedidoRepository;
 import com.easyeats.api.repository.MesaRepository;
+import com.easyeats.api.security.UsuarioAutenticado;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +32,7 @@ public class PedidoService {
     private final MesaRepository mesaRepository;
     private final EstoqueService estoqueService;
     private final PushService pushService;
+    private final VendaService vendaService;
 
     @Transactional(readOnly = true)
     public void validarEstoque(List<ItemPedidoDto> itens) {
@@ -39,12 +41,13 @@ public class PedidoService {
     }
 
     @Transactional
-    public PedidoDto salvar(PedidoDto dto) {
+    public PedidoDto salvar(PedidoDto dto, UsuarioAutenticado usuario) {
 
         List<ItemPedido> itens = montarItens(dto);
         estoqueService.validarDisponibilidade(itens);
 
         Pedido pedido = mapper.toEntity(dto, itens);
+        pedido.setVenda(vendaService.obterAbertaOuAbrir(pedido.getMesa().getId(), dto.cliente(), usuario));
 
         // cálculo do valorTotal
         BigDecimal valorTotal = itens.stream()
@@ -71,6 +74,8 @@ public class PedidoService {
         }
 
         Pedido pedido = pedidoExistente.get();
+        vendaService.exigirEditavel(pedido.getVenda());
+        vendaService.exigirMesaDaVenda(pedido.getVenda(), dto.mesaId());
         StatusPedidoEnum anterior = pedido.getStatus();
         List<ItemPedido> itens = montarItens(dto);
 
@@ -123,6 +128,7 @@ public class PedidoService {
      * exceção e nada é alterado.
      */
     private void definirStatus(Pedido pedido, StatusPedidoEnum novoStatus) {
+        vendaService.exigirTransicaoPermitida(pedido.getVenda(), novoStatus);
         if (novoStatus == StatusPedidoEnum.EM_PREPARO && !pedido.isEstoqueBaixado()) {
             estoqueService.baixarPorItens(pedido.getItens());
             pedido.setEstoqueBaixado(true);
@@ -151,7 +157,10 @@ public class PedidoService {
 
     @Transactional
     public void excluir(Long id) {
-        repository.findById(id).ifPresent(repository::delete);
+        repository.findById(id).ifPresent(pedido -> {
+            vendaService.exigirEditavel(pedido.getVenda());
+            repository.delete(pedido);
+        });
     }
 
     private List<ItemPedido> montarItens(PedidoDto dto) {

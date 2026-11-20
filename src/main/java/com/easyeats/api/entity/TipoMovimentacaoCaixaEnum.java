@@ -3,7 +3,8 @@ package com.easyeats.api.entity;
 public enum TipoMovimentacaoCaixaEnum {
     FUNDO_INICIAL(true),
     SUPRIMENTO(true),
-    SANGRIA(false);
+    SANGRIA(false),
+    VENDA(true);
 
     private final boolean entrada;
 

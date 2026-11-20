@@ -83,7 +83,9 @@ public class CaixaService {
         if (tipo == TipoMovimentacaoCaixaEnum.FUNDO_INICIAL) {
             throw new RegraNegocioException("O fundo de caixa só pode ser informado na abertura");
         }
-        if (tipo == TipoMovimentacaoCaixaEnum.SANGRIA) {
+        if (tipo == TipoMovimentacaoCaixaEnum.VENDA) {
+            throw new RegraNegocioException("As vendas entram no caixa ao finalizar a venda");
+        }        if (tipo == TipoMovimentacaoCaixaEnum.SANGRIA) {
             exigirGestao(usuario);
             if (dto.descricao() == null || dto.descricao().isBlank()) {
                 throw new RegraNegocioException("Informe o motivo da sangria");
@@ -104,6 +106,27 @@ public class CaixaService {
         MovimentacaoCaixa movimentacao = movimentacaoRepository.save(
                 novaMovimentacao(caixa, tipo, valor, textoOuNull(dto.descricao()), usuario));
         return mapper.toDto(movimentacao);
+    }
+
+    // ------------------------------------------------------------------ vendas
+
+    /**
+     * Usado ao finalizar uma venda: exige caixa aberto e lança nele o dinheiro recebido (já sem o troco).
+     * Vendas pagas só com Pix ou cartão também exigem o caixa aberto, mas não geram lançamento.
+     */
+    @Transactional
+    public Caixa registrarVenda(Long vendaId, BigDecimal valorEmDinheiro, UsuarioAutenticado usuario) {
+        Caixa aberto = caixaRepository.findByStatus(StatusCaixaEnum.ABERTO)
+                .orElseThrow(() -> new RegraNegocioException("Abra o caixa antes de finalizar a venda"));
+        Caixa caixa = buscarAbertoParaAtualizar(aberto.getId());
+
+        if (valorEmDinheiro.signum() > 0) {
+            MovimentacaoCaixa entrada = novaMovimentacao(caixa, TipoMovimentacaoCaixaEnum.VENDA,
+                    valorEmDinheiro, "Venda #" + vendaId, usuario);
+            entrada.setVendaId(vendaId);
+            movimentacaoRepository.save(entrada);
+        }
+        return caixa;
     }
 
     // ------------------------------------------------------------------ fechamento
@@ -200,6 +223,7 @@ public class CaixaService {
                 mapper.toDto(caixa, caixa.getValorEsperado()),
                 totalDoTipo(totais, TipoMovimentacaoCaixaEnum.SUPRIMENTO),
                 totalDoTipo(totais, TipoMovimentacaoCaixaEnum.SANGRIA),
+                totalDoTipo(totais, TipoMovimentacaoCaixaEnum.VENDA),
                 movimentacoes);
     }
 

@@ -16,12 +16,14 @@ import com.easyeats.api.repository.EstoqueRepository;
 import com.easyeats.api.repository.IngredienteRepository;
 import com.easyeats.api.repository.MesaRepository;
 import com.easyeats.api.repository.MovimentacaoCaixaRepository;
+import com.easyeats.api.repository.PagamentoVendaRepository;
 import com.easyeats.api.repository.PedidoRepository;
 import com.easyeats.api.repository.PrecoRepository;
 import com.easyeats.api.repository.ProdutoIngredienteRepository;
 import com.easyeats.api.repository.ProdutoRepository;
 import com.easyeats.api.repository.RoleRepository;
 import com.easyeats.api.repository.UsuarioRepository;
+import com.easyeats.api.repository.VendaRepository;
 import com.easyeats.api.security.JwtUtil;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +85,8 @@ public abstract class IntegrationTestBase {
     @Autowired protected EstoqueRepository estoqueRepository;
     @Autowired protected CaixaRepository caixaRepository;
     @Autowired protected MovimentacaoCaixaRepository movimentacaoCaixaRepository;
+    @Autowired protected VendaRepository vendaRepository;
+    @Autowired protected PagamentoVendaRepository pagamentoVendaRepository;
 
     protected MockMvc mockMvc;
     private String token;
@@ -102,9 +106,11 @@ public abstract class IntegrationTestBase {
 
     private void limparBanco() {
         // ordem respeita as chaves estrangeiras (filhos antes dos pais)
+        pagamentoVendaRepository.deleteAllInBatch();
+        pedidoRepository.deleteAll();               // itens do pedido saem por cascade
+        vendaRepository.deleteAllInBatch();
         movimentacaoCaixaRepository.deleteAllInBatch();
         caixaRepository.deleteAllInBatch();
-        pedidoRepository.deleteAll();               // itens do pedido saem por cascade
         produtoIngredienteRepository.deleteAll();
         precoRepository.deleteAll();
         produtoRepository.deleteAll();
@@ -158,6 +164,10 @@ public abstract class IntegrationTestBase {
 
     protected ResultActions delete(String url) throws Exception {
         return mockMvc.perform(comToken(MockMvcRequestBuilders.delete(url)));
+    }
+
+    protected ResultActions patch(String url, String json) throws Exception {
+        return mockMvc.perform(comToken(MockMvcRequestBuilders.patch(url)).content(json));
     }
 
     protected ResultActions patch(String url) throws Exception {

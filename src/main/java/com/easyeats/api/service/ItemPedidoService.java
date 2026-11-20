@@ -32,6 +32,7 @@ public class ItemPedidoService {
     private final PrecoRepository precoRepository;
     private final ItemPedidoMapper mapper;
     private final EstoqueService estoqueService;
+    private final VendaService vendaService;
 
     @Transactional
     public ItemPedidoDto adicionar(Long pedidoId, ItemPedidoDto dto) {
@@ -42,6 +43,7 @@ public class ItemPedidoService {
             return null;
         }
 
+        vendaService.exigirEditavel(pedido.get().getVenda());
         ItemPedido item = montarItem(dto);
         estoqueService.validarDisponibilidade(List.of(item));   // só valida, não baixa estoque
         pedido.get().adicionarItem(item);
@@ -59,6 +61,7 @@ public class ItemPedidoService {
         }
 
         ItemPedido item = itemExistente.get();
+        vendaService.exigirEditavel(item.getPedido().getVenda());
         item.setQuantidade(dto.quantidade());
 
         // Se o produto mudou, o valor é recalculado; senão mantém o valor da compra original
@@ -92,6 +95,7 @@ public class ItemPedidoService {
             return;
         }
 
+        vendaService.exigirEditavel(item.get().getPedido().getVenda());
         if (repository.countByPedidoId(item.get().getPedido().getId()) <= 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "O pedido deve ter ao menos um item");

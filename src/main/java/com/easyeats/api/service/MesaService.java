@@ -9,7 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.easyeats.api.dto.MesaDto;
 import com.easyeats.api.dto.mapper.MesaMapper;
 import com.easyeats.api.entity.Mesa;
+import com.easyeats.api.entity.StatusVendaEnum;
+import com.easyeats.api.exception.RegraNegocioException;
 import com.easyeats.api.repository.MesaRepository;
+import com.easyeats.api.repository.VendaRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +22,7 @@ public class MesaService {
 
     private final MesaRepository repository;
     private final MesaMapper mapper;
+    private final VendaRepository vendaRepository;
 
     @Transactional
     public MesaDto salvar(MesaDto dto) {
@@ -74,6 +78,9 @@ public class MesaService {
     @Transactional
     public void excluir(Long id) {
         repository.findById(id).ifPresent(mesa -> {
+            if (vendaRepository.existsByMesaIdAndStatus(id, StatusVendaEnum.ABERTA)) {
+                throw new RegraNegocioException("A mesa tem uma venda aberta e não pode ser excluída");
+            }
             mesa.setFlativo("N");
             repository.save(mesa);
         });
