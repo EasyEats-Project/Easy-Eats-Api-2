@@ -257,15 +257,26 @@ continuar funcionando. Pontos a tratar na etapa da Venda:
 
 ## 7. O que falta
 
-### 7.1 Frontend do Caixa (próxima etapa)
+### 7.1 Frontend do Caixa (implementado, commit `67ab211` do repositório do frontend)
 
-- `caixa.service.ts` seguindo o contrato da seção 4.4.
-- Tela `/caixa`: abrir, lançar suprimento e sangria, fechar com fechamento cego.
-- Tela de lançamentos com filtros (período, tipo, usuário, caixa) e totais.
-- Histórico de caixas e relatório de fechamento com impressão e nome de usuário.
-- Rotas e menu em Financeiro, seguindo o design system global (`styles.scss`) e o modo escuro.
-- Reescrever em `signal()` (o app é zoneless) e remover as cores fixas do `caixa.scss` legado.
+Telas novas ou reescritas em `Easy-Eats-Frontend`, seguindo o design system global (`styles.scss`), o
+modo escuro e signals (o app é zoneless):
 
+| Rota | Perfil | O que faz |
+|---|---|---|
+| `/caixa` | todos | Abrir caixa, lançar suprimento, sangria (gestão) e fechar caixa (gestão) com fechamento cego. Mostra os lançamentos do turno só para a gestão. Após fechar, exibe o resumo e o link do relatório. |
+| `/caixa-historico` | Administrador e Gerente | Histórico de caixas com filtro de período, status e usuário, com paginação no servidor. |
+| `/caixa-relatorio/:id` | Administrador e Gerente | Relatório de fechamento com nome dos usuários, totais, diferença, lançamentos e botão Imprimir (CSS de impressão, linhas de assinatura). |
+| `/gestao-financeira` (menu "Lançamentos") | Administrador e Gerente | Lançamentos do caixa com filtro de período, tipo, usuário e caixa, totais de entradas, saídas e saldo, e paginação. |
+
+Menu: o item Financeiro virou um grupo com Visão Geral, Caixa, Histórico de Caixas e Lançamentos. O
+Funcionário vê só Caixa.
+
+Arquivos principais: `caixa.service.ts` (cliente de `/caixa`), componente reutilizável
+`components/paginacao`, regras de impressão em `styles.scss`. O service legado
+`movimentacao-financeira.service.ts` (API que nunca existiu) foi removido.
+
+Testes do frontend: 56 (eram 18). Build de produção sem avisos.
 ### 7.2 Venda e Comanda
 
 Plano aprovado: entidade `Venda` e `PagamentoVenda`, vínculo em `Pedido` (`venda_id`), venda aberta
@@ -278,5 +289,6 @@ ocupação de mesa vinda do backend e faturamento baseado em vendas finalizadas.
 ### 7.3 Pendências gerais
 
 - Validar o backend em PostgreSQL.
+- Validar visualmente as telas novas no navegador (os testes cobrem lógica e contrato, não o layout).
 - Decidir se `Specification` e `PaginaDto` ficam (item 4.9).
 - Enviar as branches ao GitHub e abrir pull requests quando for o momento.
