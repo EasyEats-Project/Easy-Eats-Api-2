@@ -8,15 +8,19 @@ import com.easyeats.api.entity.Preco;
 import com.easyeats.api.entity.Produto;
 import com.easyeats.api.entity.ProdutoIngrediente;
 import com.easyeats.api.entity.ProdutoIngredienteId;
+import com.easyeats.api.entity.Role;
 import com.easyeats.api.entity.Usuario;
+import com.easyeats.api.repository.CaixaRepository;
 import com.easyeats.api.repository.CategoriaRepository;
 import com.easyeats.api.repository.EstoqueRepository;
 import com.easyeats.api.repository.IngredienteRepository;
 import com.easyeats.api.repository.MesaRepository;
+import com.easyeats.api.repository.MovimentacaoCaixaRepository;
 import com.easyeats.api.repository.PedidoRepository;
 import com.easyeats.api.repository.PrecoRepository;
 import com.easyeats.api.repository.ProdutoIngredienteRepository;
 import com.easyeats.api.repository.ProdutoRepository;
+import com.easyeats.api.repository.RoleRepository;
 import com.easyeats.api.repository.UsuarioRepository;
 import com.easyeats.api.security.JwtUtil;
 import com.jayway.jsonpath.JsonPath;
@@ -37,7 +41,9 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -65,6 +71,7 @@ public abstract class IntegrationTestBase {
     @Autowired private UserDetailsService userDetailsService;
     @Autowired private JwtUtil jwtUtil;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private RoleRepository roleRepository;
 
     @Autowired protected CategoriaRepository categoriaRepository;
     @Autowired protected IngredienteRepository ingredienteRepository;
@@ -74,6 +81,8 @@ public abstract class IntegrationTestBase {
     @Autowired protected MesaRepository mesaRepository;
     @Autowired protected PedidoRepository pedidoRepository;
     @Autowired protected EstoqueRepository estoqueRepository;
+    @Autowired protected CaixaRepository caixaRepository;
+    @Autowired protected MovimentacaoCaixaRepository movimentacaoCaixaRepository;
 
     protected MockMvc mockMvc;
     private String token;
@@ -93,6 +102,8 @@ public abstract class IntegrationTestBase {
 
     private void limparBanco() {
         // ordem respeita as chaves estrangeiras (filhos antes dos pais)
+        movimentacaoCaixaRepository.deleteAllInBatch();
+        caixaRepository.deleteAllInBatch();
         pedidoRepository.deleteAll();               // itens do pedido saem por cascade
         produtoIngredienteRepository.deleteAll();
         precoRepository.deleteAll();
@@ -103,17 +114,26 @@ public abstract class IntegrationTestBase {
         mesaRepository.deleteAll();
     }
 
+    // Usuário padrão dos testes: perfil ADMIN (gestão). Para outros perfis use tokenDe(...).
     private String gerarToken() {
-        usuarioRepository.findByUsername(USUARIO_TESTE).orElseGet(() -> {
-            Usuario usuario = new Usuario();
-            usuario.setUsername(USUARIO_TESTE);
-            usuario.setPassword("nao-usada-nos-testes");
-            return usuarioRepository.save(usuario);
-        });
-
-        return jwtUtil.generateToken(userDetailsService.loadUserByUsername(USUARIO_TESTE));
+        return tokenDe(USUARIO_TESTE, "ADMIN");
     }
 
+    /** Token de um usuário (criado se não existir) com os perfis informados, ex.: "FUNCIONARIO". */
+    protected String tokenDe(String username, String... perfis) {
+        usuarioRepository.findByUsername(username).orElseGet(() -> {
+            Set<Role> roles = new HashSet<>();
+            for (String perfil : perfis) {
+                roles.add(roleRepository.findByNome(perfil).orElseGet(() -> roleRepository.save(new Role(null, perfil))));
+            }
+            Usuario usuario = new Usuario();
+            usuario.setUsername(username);
+            usuario.setPassword("nao-usada-nos-testes");
+            usuario.setRoles(roles);
+            return usuarioRepository.save(usuario);
+        });
+        return jwtUtil.generateToken(userDetailsService.loadUserByUsername(username));
+    }
     // ------------------------------------------------------------------ requisições autenticadas
 
     protected ResultActions post(String url, String json) throws Exception {
@@ -126,6 +146,14 @@ public abstract class IntegrationTestBase {
 
     protected ResultActions get(String url) throws Exception {
         return mockMvc.perform(comToken(MockMvcRequestBuilders.get(url)));
+    }
+
+    protected ResultActions postComo(String token, String url, String json) throws Exception {
+        return mockMvc.perform(comToken(MockMvcRequestBuilders.post(url), token).content(json));
+    }
+
+    protected ResultActions getComo(String token, String url) throws Exception {
+        return mockMvc.perform(comToken(MockMvcRequestBuilders.get(url), token));
     }
 
     protected ResultActions delete(String url) throws Exception {
@@ -144,8 +172,12 @@ public abstract class IntegrationTestBase {
     }
 
     private MockHttpServletRequestBuilder comToken(MockHttpServletRequestBuilder builder) {
+        return comToken(builder, token);
+    }
+
+    private MockHttpServletRequestBuilder comToken(MockHttpServletRequestBuilder builder, String tokenDoUsuario) {
         return builder
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDoUsuario)
                 .contentType(MediaType.APPLICATION_JSON);
     }
 
