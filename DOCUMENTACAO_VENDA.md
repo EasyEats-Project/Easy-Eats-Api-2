@@ -171,3 +171,19 @@ filtros.
 - Relatório do caixa por forma de pagamento (Pix, cartão) não existe: só o dinheiro entra no caixa. O resumo
   de vendas (`/vendas/resumo`) já traz os totais por forma de pagamento.
 - Concorrência de finalização e pagamentos é protegida por lock pessimista, mas não há teste de carga.
+
+## 12. Frontend da Venda (repositório `Easy-Eats-Frontend`)
+
+| Rota | Perfil | O que faz |
+|---|---|---|
+| `/mesas` | todos | Ocupação vinda de `GET /vendas/ocupacao-mesas` (a mesa só libera quando a conta é finalizada ou cancelada), atalho **Conta** na mesa ocupada, **Retiradas em aberto** e **Nova retirada**. |
+| `/conta/:id` | todos (cancelar: Administrador e Gerente) | Comandas e itens, pagamentos (forma, valor, valor recebido e troco), **Finalizar venda** (total pago igual ao total e caixa aberto, com atalho para abrir o caixa) e **Cancelar venda** com motivo, a opção **Devolver ao estoque os itens que ainda não foram usados** e a senha do gerente. |
+| `/novo-pedido` | todos | O botão **Finalizar pedido** abre um modal: atendimento (**Mesa**, **Retirada** ou **Delivery** desabilitado com "Em breve"), mesa, nome do cliente (obrigatório na retirada), **observações** e **forma de pagamento**. Na mesa o pagamento é registrado na conta (a mesa continua ocupada). Na retirada paga na hora o pedido é pago e finalizado (exige caixa aberto); "pagar na retirada" deixa a conta em aberto. |
+| `/financeiro` | Administrador e Gerente | Faturamento por período a partir das vendas finalizadas: total, ticket médio, quantidade, canceladas, por forma de pagamento, por dia e lista de vendas com link para a conta. |
+| `/dashboard` | Administrador e Gerente | Faturamento do dia e da semana vindo de `GET /vendas/resumo`; indicadores de operação continuam vindo das comandas. |
+
+O modelo da comanda no frontend passou a se chamar `Comanda`/`ComandaService` (`src/app/comandas`), e o da
+venda é `Venda`/`VendaService` (`src/app/vendas`). O relatório de fechamento do caixa e a lista de lançamentos
+mostram o tipo `VENDA` (dinheiro de vendas) com link para a conta de origem.
+
+Testes do frontend: 108 (eram 56), build de produção sem avisos.
