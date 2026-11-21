@@ -2,6 +2,7 @@ package com.easyeats.api.integration;
 
 import com.easyeats.api.entity.Mesa;
 import com.easyeats.api.entity.StatusVendaEnum;
+import com.easyeats.api.entity.TipoVendaEnum;
 import com.easyeats.api.entity.Venda;
 import com.easyeats.api.support.VendaTestBase;
 import org.junit.jupiter.api.DisplayName;
@@ -235,6 +236,7 @@ class VendaComandaTest extends VendaTestBase {
         criarComanda(mesa, 1);
 
         Venda duplicada = new Venda();
+        duplicada.setTipo(TipoVendaEnum.MESA);
         duplicada.setMesa(mesa);
         duplicada.setMesaAbertaId(mesa.getId());
         duplicada.setStatus(StatusVendaEnum.ABERTA);

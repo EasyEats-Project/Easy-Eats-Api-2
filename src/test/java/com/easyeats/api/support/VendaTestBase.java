@@ -52,6 +52,20 @@ public abstract class VendaTestBase extends CaixaTestBase {
         return idDaResposta(lancarComanda(daMesa, quantidade).andExpect(status().isCreated()));
     }
 
+    /** Corpo de uma comanda de retirada (sem mesa), com observação. */
+    protected String corpoRetirada(String cliente, int quantidade) {
+        return ("{\"tipoVenda\": \"RETIRADA\", \"cliente\": \"%s\", \"observacao\": \"Sem cebola\", "
+                + "\"itens\": [{\"produtoId\": %d, \"quantidade\": %d}]}").formatted(cliente, produto.getId(), quantidade);
+    }
+
+    protected ResultActions lancarRetirada(String cliente, int quantidade) throws Exception {
+        return post("/pedido", corpoRetirada(cliente, quantidade));
+    }
+
+    /** Lança uma retirada (nova venda) e devolve o id da venda. */
+    protected Long vendaDaNovaRetirada(String cliente, int quantidade) throws Exception {
+        return vendaIdDaResposta(lancarRetirada(cliente, quantidade).andExpect(status().isCreated()));
+    }
     /** Cria a comanda e devolve o id da venda aberta por ela (ou a que ela integrou). */
     protected Long vendaDaNovaComanda(Mesa daMesa, int quantidade) throws Exception {
         return vendaIdDaResposta(lancarComanda(daMesa, quantidade).andExpect(status().isCreated()));
@@ -86,6 +100,12 @@ public abstract class VendaTestBase extends CaixaTestBase {
 
     protected ResultActions finalizar(Long vendaId) throws Exception {
         return post("/vendas/%d/finalizar".formatted(vendaId), "{}");
+    }
+
+    /** Cancela pedindo a devolução do estoque, confirmada com a senha do gerente. */
+    protected ResultActions cancelarDevolvendoEstoque(Long vendaId, String motivo, String senha) throws Exception {
+        return post("/vendas/%d/cancelar".formatted(vendaId),
+                "{\"motivo\": \"%s\", \"devolverEstoque\": true, \"senhaGerente\": \"%s\"}".formatted(motivo, senha));
     }
 
     protected ResultActions cancelar(Long vendaId, String motivo) throws Exception {

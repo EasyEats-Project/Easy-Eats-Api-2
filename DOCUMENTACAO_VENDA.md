@@ -20,11 +20,11 @@ finalizada ou cancelada.
 
 - `Pedido` continua com esse nome no backend e nas rotas (`/pedido`). "Comanda" é o termo de negócio.
 - A venda abre sozinha na primeira comanda da mesa, sem campo novo na requisição.
-- A venda aceita não ter mesa (delivery e retirada futuros).
+- A venda tem tipo: `MESA`, `RETIRADA` (já funciona, sem mesa, identificada pelo nome do cliente) e `DELIVERY` (reservado, responde "em breve").
 - Sem cadastro de clientes: a venda guarda só `nomeCliente`.
 - O cliente pode pagar antes de a cozinha terminar. A mesa só libera ao finalizar a venda.
 - Caixa aberto é obrigatório para finalizar uma venda.
-- Cancelar venda é permitido com comandas em preparo. O estoque volta apenas onde o preparo não começou.
+- Cancelar venda é permitido com comandas em preparo. Devolver o estoque é uma opção marcada pelo gerente e confirmada com a senha dele; vale para comandas que baixaram o estoque mas ainda não foram usadas.
 - Sem desconto, acréscimo ou taxa de serviço. Junção e troca de mesa ficam para depois.
 - Sem migrations: as tabelas novas são criadas pelo Hibernate.
 
@@ -41,7 +41,10 @@ finalizada ou cancelada.
 `OUTROS`), `valor`, `valorRecebido` (só dinheiro), usuário e data. A divisão da conta é feita com vários
 pagamentos.
 
-**`Pedido`** ganhou `venda_id` (nulo apenas em pedidos antigos, anteriores à Venda).
+**`Venda`** tem `tipo` (`TipoVendaEnum`: `MESA`, `RETIRADA`, `DELIVERY`).
+
+**`Pedido`** ganhou `venda_id` (nulo apenas em pedidos antigos, anteriores à Venda) e `observacao`. A coluna
+`mesa_id` passou a aceitar nulo, pois comandas de retirada e delivery não têm mesa (ver seção 11).
 
 **`MovimentacaoCaixa`** ganhou `vendaId` e o tipo `VENDA` (entrada). **`PedidoDto`** ganhou `vendaId`.
 
@@ -62,16 +65,23 @@ pagamentos.
    o troco) como `VENDA`, com `vendaId`. Pix e cartão exigem o caixa aberto mas não geram lançamento.
    A cozinha **não** precisa ter terminado.
 5. **Cancelar** (Administrador e Gerente, com motivo): só vendas abertas. Cancela todas as comandas. O
-   estoque é devolvido apenas para comandas com `estoqueBaixado = true` e status `ABERTO`, ou seja, as que
-   baixaram o estoque ao entrar em preparo e voltaram para `ABERTO` (preparo não iniciado de fato).
-   Comandas em preparo ou prontas não devolvem estoque. A devolução usa o mesmo cálculo da baixa.
-6. **Comandas de venda não aberta:**
+   estoque **não volta por padrão**. Com `devolverEstoque = true` e a `senhaGerente` (a senha do próprio
+   usuário autenticado, conferida no servidor), os ingredientes voltam nas comandas que baixaram o estoque
+   mas ainda não foram usadas: status `ABERTO` (voltou ao início) ou `EM_PREPARO`. Comandas prontas
+   (`FINALIZADO`) nunca devolvem. A devolução usa o mesmo cálculo da baixa. Senha ausente ou incorreta:
+   422, e nada é cancelado.6. **Comandas de venda não aberta:**
    - Incluir, alterar e excluir comanda ou item (`/pedido`, `/item-pedido`) só com a venda aberta.
    - Venda cancelada: o status de preparo não muda (422).
    - Venda finalizada: o preparo continua livre (a cozinha pode ainda estar terminando), exceto cancelar.
    - A comanda não troca de mesa depois de lançada.
 7. **Mesa** com venda aberta não pode ser excluída (422).
-8. O usuário gravado vem sempre do token.
+8. **Retirada.** `POST /pedido` com `tipoVenda = RETIRADA` não usa mesa, exige o nome do cliente (`cliente`) e
+   abre uma venda `RETIRADA` própria. Informando `vendaId` de uma retirada aberta, a nova comanda entra nela.
+   Pagamento, finalização, caixa e cancelamento são os mesmos da venda de mesa. Uma retirada não ocupa mesa.
+9. **Delivery** (`tipoVenda = DELIVERY`) responde 422 `O delivery estará disponível em breve`, na comanda e
+   na abertura de venda.
+10. **Observação da comanda** (`observacao`, até 255 caracteres) é gravada em `Pedido`.
+11. O usuário gravado vem sempre do token.
 
 ## 5. Perfis
 
@@ -84,8 +94,10 @@ pagamentos.
 
 | Método e rota | Função |
 |---|---|
-| `POST /vendas` | Abre uma venda (`mesaId` opcional, `nomeCliente`, `observacao`). 201 `VendaDto`. |
-| `GET /vendas` | Histórico paginado. Filtros: `status`, `mesaId`, `usuario`, `inicio`, `fim`, `pagina`, `tamanho`. |
+| `POST /vendas` | Abre uma venda (`tipo`, `mesaId`, `nomeCliente`, `observacao`). Sem tipo: `MESA` com mesa, `RETIRADA` sem. 201 `VendaDto`. |
+| `GET /vendas` | Histórico paginado (Administrador e Gerente). Filtros: `status`, `mesaId`, `usuario`, `inicio`, `fim` (data de fechamento, ou de abertura se ainda aberta), `pagina`, `tamanho`. |
+| `GET /vendas/abertas` | Vendas abertas (mesas e retiradas), da mais antiga para a mais nova, com o total parcial. Qualquer usuário. |
+| `GET /vendas/resumo` | Faturamento do período (`inicio`, `fim`; sem datas, hoje): total, quantidade, ticket médio, canceladas, por forma de pagamento e por dia, pela data de fechamento. Administrador e Gerente. |
 | `GET /vendas/ocupacao-mesas` | Todas as mesas ativas: `ocupada`, `vendaId`, `nomeCliente`, `quantidadeComandas`, `valorParcial`. |
 | `GET /vendas/mesa/{mesaId}/aberta` | Venda aberta da mesa (204 se não houver). |
 | `GET /vendas/{id}` | Detalhe com comandas e pagamentos. |
@@ -93,9 +105,9 @@ pagamentos.
 | `POST /vendas/{id}/pagamentos` | Registra pagamento (`forma`, `valor`, `valorRecebido`). 201 `VendaDto`. |
 | `DELETE /vendas/{id}/pagamentos/{pagamentoId}` | Remove pagamento (venda aberta). |
 | `POST /vendas/{id}/finalizar` | Finaliza a venda e libera a mesa. |
-| `POST /vendas/{id}/cancelar` | Cancela com `{ "motivo": "..." }`. |
+| `POST /vendas/{id}/cancelar` | Cancela com `{ "motivo": "...", "devolverEstoque": false, "senhaGerente": "..." }`. |
 
-`VendaDto`: `id`, `mesaId`, `numeroMesa`, `status`, `nomeCliente`, `observacao`, `usuarioAbertura`,
+`VendaDto`: `id`, `tipo`, `mesaId`, `numeroMesa`, `status`, `nomeCliente`, `observacao`, `usuarioAbertura`,
 `dataAbertura`, `usuarioFechamento`, `dataFechamento`, `valorTotal`, `valorPago`, `valorRestante`,
 `caixaId`, `motivoCancelamento`, `comandas` (lista de `PedidoDto`), `pagamentos`.
 
@@ -136,22 +148,26 @@ resposta só ganha `vendaId`. Diferenças de comportamento que o app pode encont
 
 ## 10. Testes
 
-Total **225 testes, 0 falhas** (153 anteriores + 72 novos), em H2 e também em PostgreSQL 18 (banco
+Total **251 testes, 0 falhas** (153 anteriores + 98 novos), em H2 e também em PostgreSQL 18 (banco
 temporário, removido depois). Novos: `VendaComandaTest` (22), `VendaPagamentoFinalizacaoTest` (28),
-`VendaCancelamentoTest` (15), `VendaConsultaTest` (7). Cobrem o cenário central (comanda pronta não libera a
-mesa), pagamentos e troco, finalização com e sem caixa, entrada de dinheiro no caixa sem o troco,
-travas das comandas, cancelamento com e sem devolução de estoque, permissões e filtros.
+`VendaCancelamentoTest` (20), `VendaConsultaTest` (7), `VendaRetiradaTest` (16) e `VendaResumoTest` (5).
+Cobrem o cenário central (comanda pronta não libera a mesa), pagamentos e troco, finalização com e sem
+caixa, entrada de dinheiro no caixa sem o troco, travas das comandas, cancelamento com e sem devolução de
+estoque e senha do gerente, retirada, delivery indisponível, vendas abertas, resumo do período, permissões e
+filtros.
 
 ## 11. Limitações e pendências
 
-- **Comanda sem mesa:** a venda aceita não ter mesa, mas `Pedido.mesa` continua obrigatório (a coluna é
-  `NOT NULL` em bancos existentes e o Hibernate não a altera sem migration). Delivery e retirada vão
-  precisar liberar isso quando forem implementados.
-- **`Pedido.valorTotal`** não é recalculado quando itens são adicionados, alterados ou removidos por
-  `/item-pedido` (problema anterior à Venda). O total da venda não sofre com isso porque é calculado pelos
-  itens, mas o campo do pedido pode ficar defasado.
+- **Coluna `tb_pedido.mesa_id` em bancos já existentes.** O Hibernate (`ddl-auto=update`) não remove
+  `NOT NULL` de colunas existentes. Em um banco criado antes desta mudança, a retirada só funciona depois de
+  executar uma vez: `ALTER TABLE tb_pedido ALTER COLUMN mesa_id DROP NOT NULL;`. Bancos novos já nascem
+  corretos. Quando migrations puderem ser alteradas, esse passo deve virar uma migration.
+- **`Pedido.valorTotal`** não é recalculado quando itens são alterados (`PUT /pedido` e `/item-pedido`),
+  problema anterior à Venda. O total da venda não sofre, porque é calculado pelos itens.
 - **Cancelar uma comanda isolada** continua sem devolver estoque (comportamento anterior, fixado por
   teste). A devolução só ocorre no cancelamento da venda.
-- Relatório do caixa por forma de pagamento (Pix, cartão) não existe: só o dinheiro entra no caixa.
+- A senha do gerente é a do próprio usuário autenticado (que já precisa ser Administrador ou Gerente).
+  Autorização por outro gerente (usuário e senha diferentes) não foi implementada.
+- Relatório do caixa por forma de pagamento (Pix, cartão) não existe: só o dinheiro entra no caixa. O resumo
+  de vendas (`/vendas/resumo`) já traz os totais por forma de pagamento.
 - Concorrência de finalização e pagamentos é protegida por lock pessimista, mas não há teste de carga.
-- Frontend da Venda ainda não foi feito.

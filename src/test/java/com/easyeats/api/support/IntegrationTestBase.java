@@ -32,6 +32,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -66,6 +67,9 @@ public abstract class IntegrationTestBase {
 
     protected static final long ID_INEXISTENTE = 999_999L;
 
+    /** Senha de todos os usuários criados por tokenDe (usada na confirmação de senha do gerente). */
+    protected static final String SENHA_TESTE = "senha-teste-123";
+
     private static final String USUARIO_TESTE = "usuario.teste";
 
     @Autowired private WebApplicationContext context;
@@ -74,6 +78,7 @@ public abstract class IntegrationTestBase {
     @Autowired private JwtUtil jwtUtil;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private RoleRepository roleRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
 
     @Autowired protected CategoriaRepository categoriaRepository;
     @Autowired protected IngredienteRepository ingredienteRepository;
@@ -134,7 +139,7 @@ public abstract class IntegrationTestBase {
             }
             Usuario usuario = new Usuario();
             usuario.setUsername(username);
-            usuario.setPassword("nao-usada-nos-testes");
+            usuario.setPassword(passwordEncoder.encode(SENHA_TESTE));
             usuario.setRoles(roles);
             return usuarioRepository.save(usuario);
         });

@@ -13,8 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Cancelamento de venda (Administrador e Gerente, com motivo): cancela todas as comandas e libera a mesa.
- * O estoque só volta para comandas cujo preparo não começou (baixaram o estoque e voltaram a ABERTO);
- * comandas em preparo ou prontas já consumiram os ingredientes.
+ * O estoque só volta quando o gerente marca a opção e confirma com a própria senha, e apenas nas comandas
+ * que baixaram o estoque mas ainda não foram usadas (ABERTO ou EM_PREPARO). Comandas prontas nunca devolvem.
  */
 @DisplayName("Venda: cancelamento e devolução de estoque")
 class VendaCancelamentoTest extends VendaTestBase {
@@ -85,75 +85,151 @@ class VendaCancelamentoTest extends VendaTestBase {
         get("/vendas/" + vendaId).andExpect(jsonPath("$.status").value("ABERTA"));
     }
 
-    // ------------------------------------------------------------------ estoque
+    // ------------------------------------------------------------------ estoque (opção do gerente)
 
     @Test
-    @DisplayName("comanda em preparo já consumiu os ingredientes: cancelar a venda não devolve estoque")
-    void emPreparoNaoDevolve() throws Exception {
+    @DisplayName("sem marcar a devolução, o estoque nunca volta, mesmo em comanda que ainda não foi usada")
+    void semOpcaoNaoDevolve() throws Exception {
+        Long emPreparo = criarComanda(mesa, 2);
+        Long voltouAberto = criarComanda(mesa, 1);
+        mudarStatus(emPreparo, "EM_PREPARO").andExpect(status().isOk());
+        mudarStatus(voltouAberto, "EM_PREPARO").andExpect(status().isOk());
+        mudarStatus(voltouAberto, "ABERTO").andExpect(status().isOk());
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("97"));
+
+        cancelar(vendaAbertaDa(mesa), "Cliente foi embora").andExpect(status().isOk());
+
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("97"));
+        assertThat(pedidoRepository.findById(emPreparo).orElseThrow().isEstoqueBaixado()).isTrue();
+    }
+
+    @Test
+    @DisplayName("comanda em preparo cujos itens não foram usados: com a opção e a senha, o estoque volta")
+    void emPreparoDevolveComOpcao() throws Exception {
         Long comandaId = criarComanda(mesa, 2);
         mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
         assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("98"));
 
-        cancelar(vendaAbertaDa(mesa), "Cliente foi embora").andExpect(status().isOk());
+        cancelarDevolvendoEstoque(vendaAbertaDa(mesa), "Cliente desistiu antes de preparar", SENHA_TESTE)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELADA"));
 
-        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("98"));
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("100"));
+        assertThat(pedidoRepository.findById(comandaId).orElseThrow().isEstoqueBaixado()).isFalse();
         assertThat(statusDa(comandaId)).isEqualTo(StatusPedidoEnum.CANCELADO);
     }
 
     @Test
-    @DisplayName("comanda pronta também não devolve estoque")
-    void prontaNaoDevolve() throws Exception {
-        Long comandaId = criarComanda(mesa, 3);
-        mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
-        mudarStatus(comandaId, "FINALIZADO").andExpect(status().isOk());
-
-        cancelar(vendaAbertaDa(mesa), "Pedido errado").andExpect(status().isOk());
-
-        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("97"));
-    }
-
-    @Test
-    @DisplayName("comanda que baixou estoque e voltou a ABERTO (preparo não começou): o estoque é devolvido")
-    void preparoNaoIniciadoDevolve() throws Exception {
+    @DisplayName("comanda que baixou estoque e voltou a ABERTO também devolve com a opção")
+    void voltouAbertoDevolveComOpcao() throws Exception {
         Long comandaId = criarComanda(mesa, 2);
         mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
         mudarStatus(comandaId, "ABERTO").andExpect(status().isOk());
-        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("98"));
-        assertThat(pedidoRepository.findById(comandaId).orElseThrow().isEstoqueBaixado()).isTrue();
 
-        cancelar(vendaAbertaDa(mesa), "Cliente desistiu").andExpect(status().isOk());
+        cancelarDevolvendoEstoque(vendaAbertaDa(mesa), "Cliente desistiu", SENHA_TESTE).andExpect(status().isOk());
 
         assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("100"));
         assertThat(pedidoRepository.findById(comandaId).orElseThrow().isEstoqueBaixado()).isFalse();
     }
 
     @Test
-    @DisplayName("comanda que nunca baixou estoque: cancelar não mexe no estoque")
+    @DisplayName("comanda pronta já foi consumida: nem com a opção o estoque volta")
+    void prontaNuncaDevolve() throws Exception {
+        Long comandaId = criarComanda(mesa, 3);
+        mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
+        mudarStatus(comandaId, "FINALIZADO").andExpect(status().isOk());
+
+        cancelarDevolvendoEstoque(vendaAbertaDa(mesa), "Pedido errado", SENHA_TESTE).andExpect(status().isOk());
+
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("97"));
+        assertThat(pedidoRepository.findById(comandaId).orElseThrow().isEstoqueBaixado()).isTrue();
+    }
+
+    @Test
+    @DisplayName("comanda que nunca baixou estoque: a opção não mexe no estoque")
     void nuncaBaixouNaoMexe() throws Exception {
         criarComanda(mesa, 5);
 
-        cancelar(vendaAbertaDa(mesa), "Cliente desistiu").andExpect(status().isOk());
+        cancelarDevolvendoEstoque(vendaAbertaDa(mesa), "Cliente desistiu", SENHA_TESTE).andExpect(status().isOk());
 
         assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("100"));
     }
 
     @Test
-    @DisplayName("venda com comandas em estados diferentes: devolve só a do preparo não iniciado")
+    @DisplayName("venda com comandas em estados diferentes: devolve só as não usadas (preparo e voltou a aberto)")
     void estadosMistos() throws Exception {
-        Long emPreparo = criarComanda(mesa, 1);        // consome 1
-        Long voltouAberto = criarComanda(mesa, 2);     // consome 2 e volta (devolve 2)
+        Long emPreparo = criarComanda(mesa, 1);        // consome 1, em preparo: devolve
+        Long voltouAberto = criarComanda(mesa, 2);     // consome 2 e volta a ABERTO: devolve
+        Long pronta = criarComanda(mesa, 3);           // consome 3 e fica pronta: não devolve
         Long cancelada = criarComanda(mesa, 4);        // cancelada antes: nada baixado
         mudarStatus(emPreparo, "EM_PREPARO").andExpect(status().isOk());
         mudarStatus(voltouAberto, "EM_PREPARO").andExpect(status().isOk());
         mudarStatus(voltouAberto, "ABERTO").andExpect(status().isOk());
+        mudarStatus(pronta, "EM_PREPARO").andExpect(status().isOk());
+        mudarStatus(pronta, "FINALIZADO").andExpect(status().isOk());
         mudarStatus(cancelada, "CANCELADO").andExpect(status().isOk());
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("94"));
+
+        cancelarDevolvendoEstoque(vendaAbertaDa(mesa), "Mesa desfeita", SENHA_TESTE).andExpect(status().isOk());
+
         assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("97"));
-
-        cancelar(vendaAbertaDa(mesa), "Mesa desfeita").andExpect(status().isOk());
-
-        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("99"));
     }
 
+    @Test
+    @DisplayName("devolver estoque sem informar a senha do gerente: 422 e nada muda")
+    void devolverSemSenha() throws Exception {
+        Long comandaId = criarComanda(mesa, 2);
+        mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
+        Long vendaId = vendaAbertaDa(mesa);
+
+        assertRegraNegocio(post("/vendas/%d/cancelar".formatted(vendaId),
+                "{\"motivo\": \"Teste\", \"devolverEstoque\": true}"),
+                "Informe a senha do gerente para devolver o estoque");
+        assertRegraNegocio(post("/vendas/%d/cancelar".formatted(vendaId),
+                "{\"motivo\": \"Teste\", \"devolverEstoque\": true, \"senhaGerente\": \"  \"}"),
+                "Informe a senha do gerente para devolver o estoque");
+
+        get("/vendas/" + vendaId).andExpect(jsonPath("$.status").value("ABERTA"));
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("98"));
+    }
+
+    @Test
+    @DisplayName("senha do gerente incorreta: 422 e a venda continua aberta, com o estoque intacto")
+    void senhaIncorreta() throws Exception {
+        Long comandaId = criarComanda(mesa, 2);
+        mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
+        Long vendaId = vendaAbertaDa(mesa);
+
+        assertRegraNegocio(cancelarDevolvendoEstoque(vendaId, "Teste", "senha-errada"), "Senha do gerente incorreta");
+
+        get("/vendas/" + vendaId).andExpect(jsonPath("$.status").value("ABERTA"));
+        assertThat(statusDa(comandaId)).isEqualTo(StatusPedidoEnum.EM_PREPARO);
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("98"));
+    }
+
+    @Test
+    @DisplayName("sem marcar a devolução a senha não é exigida nem verificada")
+    void senhaIgnoradaSemOpcao() throws Exception {
+        criarComanda(mesa, 1);
+
+        post("/vendas/%d/cancelar".formatted(vendaAbertaDa(mesa)),
+                "{\"motivo\": \"Teste\", \"devolverEstoque\": false, \"senhaGerente\": \"qualquer\"}")
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("gerente confirma a devolução com a própria senha")
+    void gerenteDevolveComPropriaSenha() throws Exception {
+        Long comandaId = criarComanda(mesa, 2);
+        mudarStatus(comandaId, "EM_PREPARO").andExpect(status().isOk());
+        Long vendaId = vendaAbertaDa(mesa);
+
+        postComo(tokenDe("gerente.teste", "GERENTE"), "/vendas/%d/cancelar".formatted(vendaId),
+                "{\"motivo\": \"Teste\", \"devolverEstoque\": true, \"senhaGerente\": \"%s\"}".formatted(SENHA_TESTE))
+                .andExpect(status().isOk());
+
+        assertThat(estoqueDoPao()).isEqualByComparingTo(new BigDecimal("100"));
+    }
     // ------------------------------------------------------------------ regras de estado
 
     @Test

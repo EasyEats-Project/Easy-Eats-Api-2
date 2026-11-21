@@ -47,7 +47,9 @@ public class PedidoService {
         estoqueService.validarDisponibilidade(itens);
 
         Pedido pedido = mapper.toEntity(dto, itens);
-        pedido.setVenda(vendaService.obterAbertaOuAbrir(pedido.getMesa().getId(), dto.cliente(), usuario));
+        Long mesaId = pedido.getMesa() == null ? null : pedido.getMesa().getId();
+        pedido.setVenda(vendaService.vendaParaNovaComanda(
+                dto.tipoVenda(), mesaId, dto.vendaId(), dto.cliente(), usuario));
 
         // cálculo do valorTotal
         BigDecimal valorTotal = itens.stream()
@@ -84,10 +86,13 @@ public class PedidoService {
             estoqueService.validarDisponibilidade(itens);
         }
 
-        pedido.setMesa(mesaRepository.findById(dto.mesaId())
-                .filter(mesa -> "S".equals(mesa.getFlativo()))
-                .orElseThrow(() -> new RuntimeException("Mesa não encontrada ou inativa")));
+        if (pedido.getMesa() != null) {
+            pedido.setMesa(mesaRepository.findById(dto.mesaId())
+                    .filter(mesa -> "S".equals(mesa.getFlativo()))
+                    .orElseThrow(() -> new RuntimeException("Mesa não encontrada ou inativa")));
+        }
         pedido.setCliente(dto.cliente());
+        pedido.setObservacao(dto.observacao() == null || dto.observacao().isBlank() ? null : dto.observacao().trim());
 
         if (dto.status() != null && !dto.status().isBlank()) {
             pedido.setStatus(StatusPedidoEnum.valueOf(dto.status().toUpperCase()));
@@ -138,8 +143,10 @@ public class PedidoService {
 
     private void notificarSeFicouPronto(Pedido pedido, StatusPedidoEnum anterior) {
         if (anterior == StatusPedidoEnum.EM_PREPARO && pedido.getStatus() == StatusPedidoEnum.FINALIZADO) {
-            pushService.notificarPedidoPronto(
-                    pedido.getId(), String.format("Mesa %02d", pedido.getMesa().getNumero()));
+            String local = pedido.getMesa() != null
+                    ? String.format("Mesa %02d", pedido.getMesa().getNumero())
+                    : "Retirada" + (pedido.getCliente() == null ? "" : " de " + pedido.getCliente());
+            pushService.notificarPedidoPronto(pedido.getId(), local);
         }
     }
 

@@ -51,6 +51,10 @@ public class Venda {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    private TipoVendaEnum tipo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
     private StatusVendaEnum status;
 
     // Preenchido com o id da mesa enquanto a venda está aberta e limpo (null) ao encerrar.

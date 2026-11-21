@@ -8,8 +8,9 @@ import java.time.LocalDate;
 public record FiltroVendaDto(
         StatusVendaEnum status,
         Long mesaId,
-        String usuario,             // quem abriu ou finalizou
-        LocalDate inicio,           // data de abertura, inclusivo
-        LocalDate fim               // data de abertura, inclusivo
+        String usuario,             // quem abriu ou encerrou
+        LocalDate inicio,           // data de referência, inclusivo
+        LocalDate fim               // data de referência, inclusivo
 ) {
+    // Data de referência: fechamento (finalizada ou cancelada) ou, se a venda ainda está aberta, abertura.
 }

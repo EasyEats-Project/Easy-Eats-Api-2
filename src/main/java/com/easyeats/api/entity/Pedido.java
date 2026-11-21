@@ -32,8 +32,12 @@ public class Pedido {
 
     private String cliente;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "mesa_id", nullable = false)
+    // Observação da comanda (por exemplo, "sem cebola")
+    private String observacao;
+
+    // Nula nas comandas de retirada e delivery (a mesa só existe no atendimento de mesa)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "mesa_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Mesa mesa;

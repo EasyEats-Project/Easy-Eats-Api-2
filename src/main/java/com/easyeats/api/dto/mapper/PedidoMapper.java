@@ -9,6 +9,7 @@ import com.easyeats.api.entity.ItemPedido;
 import com.easyeats.api.entity.Mesa;
 import com.easyeats.api.entity.Pedido;
 import com.easyeats.api.entity.StatusPedidoEnum;
+import com.easyeats.api.entity.TipoVendaEnum;
 import com.easyeats.api.repository.MesaRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,9 @@ public class PedidoMapper {
                 pedido.getDataAlteracao(),
                 pedido.getMesa() != null ? pedido.getMesa().getId() : null,
                 pedido.getVenda() != null ? pedido.getVenda().getId() : null,
+                pedido.getVenda() != null ? pedido.getVenda().getTipo() : null,
                 pedido.getCliente(),
+                pedido.getObservacao(),
                 pedido.getStatus() == null
                         ? StatusPedidoEnum.ABERTO.name()
                         : pedido.getStatus().name(),
@@ -41,8 +44,11 @@ public class PedidoMapper {
     public Pedido toEntity(PedidoDto dto, List<ItemPedido> itens) {
         Pedido pedido = new Pedido();
 
-        pedido.setMesa(buscarMesa(dto.mesaId()));
+        TipoVendaEnum tipo = dto.tipoVenda() == null ? TipoVendaEnum.MESA : dto.tipoVenda();
+        // só o atendimento de mesa exige mesa; retirada e delivery não têm
+        pedido.setMesa(tipo == TipoVendaEnum.MESA ? buscarMesa(dto.mesaId()) : null);
         pedido.setCliente(dto.cliente());
+        pedido.setObservacao(dto.observacao() == null || dto.observacao().isBlank() ? null : dto.observacao().trim());
 
         if (dto.status() != null && !dto.status().isBlank()) {
             pedido.setStatus(StatusPedidoEnum.valueOf(dto.status().toUpperCase()));

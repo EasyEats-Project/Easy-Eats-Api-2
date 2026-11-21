@@ -2,6 +2,7 @@ package com.easyeats.api.integration;
 
 import com.easyeats.api.entity.Mesa;
 import com.easyeats.api.entity.StatusVendaEnum;
+import com.easyeats.api.entity.TipoVendaEnum;
 import com.easyeats.api.entity.Venda;
 import com.easyeats.api.support.VendaTestBase;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +25,7 @@ class VendaConsultaTest extends VendaTestBase {
     private Venda salvarVenda(Mesa daMesa, StatusVendaEnum status, String usuario, LocalDateTime abertura,
             String total) {
         Venda venda = new Venda();
+        venda.setTipo(daMesa == null ? TipoVendaEnum.RETIRADA : TipoVendaEnum.MESA);
         venda.setMesa(daMesa);
         venda.setStatus(status);
         venda.setUsuarioAbertura(usuario);

@@ -1,6 +1,7 @@
 package com.easyeats.api.dto;
 
 import com.easyeats.api.entity.StatusVendaEnum;
+import com.easyeats.api.entity.TipoVendaEnum;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -8,6 +9,7 @@ import java.util.List;
 
 public record VendaDto(
         Long id,
+        TipoVendaEnum tipo,
         Long mesaId,
         Integer numeroMesa,
         StatusVendaEnum status,

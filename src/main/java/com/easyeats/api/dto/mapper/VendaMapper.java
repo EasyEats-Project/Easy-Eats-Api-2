@@ -25,6 +25,7 @@ public class VendaMapper {
                 .reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add);
         return new VendaDto(
                 venda.getId(),
+                venda.getTipo(),
                 venda.getMesa() != null ? venda.getMesa().getId() : null,
                 venda.getMesa() != null ? venda.getMesa().getNumero() : null,
                 venda.getStatus(),
@@ -47,6 +48,7 @@ public class VendaMapper {
     public VendaResumoDto toResumo(Venda venda, BigDecimal valorTotal) {
         return new VendaResumoDto(
                 venda.getId(),
+                venda.getTipo(),
                 venda.getMesa() != null ? venda.getMesa().getId() : null,
                 venda.getMesa() != null ? venda.getMesa().getNumero() : null,
                 venda.getStatus(),

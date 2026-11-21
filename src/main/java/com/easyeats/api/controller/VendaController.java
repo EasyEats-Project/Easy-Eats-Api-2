@@ -7,6 +7,7 @@ import com.easyeats.api.dto.FiltroVendaDto;
 import com.easyeats.api.dto.OcupacaoMesaDto;
 import com.easyeats.api.dto.PagamentoVendaDto;
 import com.easyeats.api.dto.PaginaDto;
+import com.easyeats.api.dto.ResumoVendasDto;
 import com.easyeats.api.dto.VendaDto;
 import com.easyeats.api.dto.VendaResumoDto;
 import com.easyeats.api.entity.StatusVendaEnum;
@@ -48,6 +49,19 @@ public class VendaController {
             Authentication authentication) {
         FiltroVendaDto filtro = new FiltroVendaDto(status, mesaId, usuario, inicio, fim);
         return ResponseEntity.ok(vendaService.listar(filtro, pagina, tamanho, UsuarioAutenticado.de(authentication)));
+    }
+
+    @GetMapping("/abertas")
+    public ResponseEntity<List<VendaResumoDto>> listarAbertas() {
+        return ResponseEntity.ok(vendaService.listarAbertas());
+    }
+
+    @GetMapping("/resumo")
+    public ResponseEntity<ResumoVendasDto> resumir(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
+            Authentication authentication) {
+        return ResponseEntity.ok(vendaService.resumir(inicio, fim, UsuarioAutenticado.de(authentication)));
     }
 
     @GetMapping("/ocupacao-mesas")
