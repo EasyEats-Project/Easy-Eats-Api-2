@@ -158,10 +158,7 @@ filtros.
 
 ## 11. Limitações e pendências
 
-- **Coluna `tb_pedido.mesa_id` em bancos já existentes.** O Hibernate (`ddl-auto=update`) não remove
-  `NOT NULL` de colunas existentes. Em um banco criado antes desta mudança, a retirada só funciona depois de
-  executar uma vez: `ALTER TABLE tb_pedido ALTER COLUMN mesa_id DROP NOT NULL;`. Bancos novos já nascem
-  corretos. Quando migrations puderem ser alteradas, esse passo deve virar uma migration.
+- **Bancos criados antes da venda/caixa.** O Hibernate (`ddl-auto=update`) não altera restrições existentes. A migration `V6__ajusta_restricoes_venda_caixa.sql` aceita o tipo `VENDA` em `tb_movimentacao_caixa` e remove o `NOT NULL` de `tb_pedido.mesa_id` (retirada). Ela roda sozinha no PostgreSQL ao subir a API e não faz nada em banco novo.
 - **`Pedido.valorTotal`** não é recalculado quando itens são alterados (`PUT /pedido` e `/item-pedido`),
   problema anterior à Venda. O total da venda não sofre, porque é calculado pelos itens.
 - **Cancelar uma comanda isolada** continua sem devolver estoque (comportamento anterior, fixado por
