@@ -180,6 +180,26 @@ public class EstoqueService {
                 necessidade.quantidade()));
     }
 
+    /**
+     * Devolve ao estoque os ingredientes antes baixados pelos itens (mesmo cálculo da baixa).
+     * Usada ao cancelar uma venda com comandas cujo preparo não começou.
+     */
+    @Transactional
+    public void devolverPorItens(Collection<ItemPedido> itens) {
+        Map<Long, Necessidade> necessidades = calcularNecessidades(itens);
+        if (necessidades.isEmpty()) {
+            return;
+        }
+        Map<Long, Estoque> estoques = indexarPorIngrediente(
+                estoqueRepository.findByIngredienteIdInOrderByIdAsc(necessidades.keySet()));
+        necessidades.forEach((idIngrediente, necessidade) -> {
+            Estoque estoque = estoques.get(idIngrediente);
+            if (estoque != null && necessidade.quantidade().signum() > 0) {
+                registrarEntrada(estoque.getId(), necessidade.quantidade());
+            }
+        });
+    }
+
     // consumo total por ingrediente = soma(quantidade da ficha técnica x quantidade
     // pedida)
     private Map<Long, Necessidade> calcularNecessidades(Collection<ItemPedido> itens) {
