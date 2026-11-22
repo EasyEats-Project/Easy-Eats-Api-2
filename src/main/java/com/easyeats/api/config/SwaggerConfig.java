@@ -1,7 +1,10 @@
 package com.easyeats.api.config;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,6 +33,21 @@ public class SwaggerConfig {
             as respostas de erro trazem o campo `erro` com a mensagem.
             """;
 
+    /** Ordem das seções na tela, seguindo o fluxo do sistema. */
+    private static final List<String> ORDEM_DAS_SECOES = List.of(
+            "Autenticação",
+            "Mesas",
+            "Categorias",
+            "Produtos",
+            "Ingredientes",
+            "Ficha técnica",
+            "Preços",
+            "Estoque",
+            "Pedidos (comandas)",
+            "Itens do pedido",
+            "Caixa",
+            "Vendas");
+
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
@@ -37,20 +55,6 @@ public class SwaggerConfig {
                         .title("API Easy Eats")
                         .version("v1.0.0")
                         .description(DESCRICAO))
-                // A ordem das seções na tela segue o fluxo do sistema.
-                .tags(List.of(
-                        new Tag().name("Autenticação"),
-                        new Tag().name("Mesas"),
-                        new Tag().name("Categorias"),
-                        new Tag().name("Produtos"),
-                        new Tag().name("Ingredientes"),
-                        new Tag().name("Ficha técnica"),
-                        new Tag().name("Preços"),
-                        new Tag().name("Estoque"),
-                        new Tag().name("Pedidos (comandas)"),
-                        new Tag().name("Itens do pedido"),
-                        new Tag().name("Caixa"),
-                        new Tag().name("Vendas")))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
                                 new SecurityScheme()
@@ -58,5 +62,23 @@ public class SwaggerConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                                         .description("Insira seu token JWT")));
+    }
+
+    /** Junta as seções repetidas e as coloca na ordem do fluxo; seções não listadas vão para o fim. */
+    @Bean
+    public OpenApiCustomizer ordenarSecoes() {
+        return openApi -> {
+            if (openApi.getTags() == null) {
+                return;
+            }
+            Map<String, Tag> unicas = new LinkedHashMap<>();
+            for (Tag tag : openApi.getTags()) {
+                unicas.merge(tag.getName(), tag, (atual, nova) -> atual.getDescription() != null ? atual : nova);
+            }
+            List<Tag> ordenadas = new java.util.ArrayList<>();
+            ORDEM_DAS_SECOES.stream().filter(unicas::containsKey).forEach(nome -> ordenadas.add(unicas.remove(nome)));
+            ordenadas.addAll(unicas.values());
+            openApi.setTags(ordenadas);
+        };
     }
 }
