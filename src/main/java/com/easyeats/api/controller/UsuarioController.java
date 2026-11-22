@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import io.swagger.v3.oas.annotations.Hidden;
 
 @Slf4j
 @RestController
 @RequestMapping("/usuarios")
 @RequiredArgsConstructor
+@Hidden
 public class UsuarioController {
 
     private final UsuarioService service;
