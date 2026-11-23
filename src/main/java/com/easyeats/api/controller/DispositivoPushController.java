@@ -7,10 +7,12 @@ import com.easyeats.api.entity.DispositivoPush;
 import com.easyeats.api.repository.DispositivoPushRepository;
 
 import lombok.RequiredArgsConstructor;
+import io.swagger.v3.oas.annotations.Hidden;
 
 @RestController
 @RequestMapping("/dispositivos")
 @RequiredArgsConstructor
+@Hidden
 public class DispositivoPushController {
 
     private final DispositivoPushRepository repository;
